@@ -72,13 +72,12 @@ class Ball:
         )
 
     def hittest(self, obj):
-        """Функция проверяет сталкивалкивается ли данный обьект с целью, описываемой в обьекте obj.
+        #l = np.array([self.x - obj.x, self.y - obj.y])
+        #v1 = np.array([self.vx, self.vy])
+        #v2 = np.array([obj.vx, obj.vy])
 
-        Args:
-            obj: Обьект, с которым проверяется столкновение.
-        Returns:
-            Возвращает True в случае столкновения мяча и цели. В противном случае возвращает False.
-        """
+        #vapproach = (l * (np.dot(v1, l)) / (np.linalg.norm(l) ** 2)) + (l * (np.dot(v2, l)) / (np.linalg.norm(l) ** 2))
+
         if (self.x - obj.x)**2 + (self.y - obj.y)**2 <= (self.r + obj.r)**2:
             return True
         else:
@@ -99,7 +98,7 @@ class Ball:
 class Gun:
     def __init__(self, screen):
         self.screen = screen
-        self.f2_power = 10
+        self.f2_power = 5
         self.f2_on = 0
         self.an = 1
         self.color = GREY
@@ -129,8 +128,7 @@ class Gun:
     def targetting(self, event):
         """Прицеливание. Зависит от положения мыши."""
         if event:
-            self.an = math.atan((event.pos[1]-450) / (event.pos[0]-20))
-        if self.f2_on:
+            self.an = math.atan((event.pos[1]-450) / (event.pos[0]-20)) # FIXME sometimes create division by zero error
             self.color = RED
         else:
             self.color = GREY
@@ -153,6 +151,8 @@ class Target:
         self.points = 0
         self.live = 1
         self.new_target()
+        self.vx = 0
+        self.vy = 0
 
     def new_target(self):
         """ Инициализация новой цели. """
@@ -184,8 +184,9 @@ def balls_collision():
             v2 = np.array([ball2.vx, ball2.vy])
             v1rel2 = v1 - v2
             l = np.array([ball2.x - ball1.x, ball2.y - ball1.y])
+            absl = np.linalg.norm(l)
 
-            v2rel2_col = l * (np.dot(v1rel2, l))/(np.linalg.norm(l) ** 2)
+            v2rel2_col = l * (np.dot(v1rel2, l))/(absl ** 2)
             v1rel2_col = v1rel2 - v2rel2_col
 
             v1_col = v1rel2_col + v2
@@ -196,6 +197,15 @@ def balls_collision():
 
             ball2.vx = v2_col[0]
             ball2.vy = v2_col[1]
+
+            l1_col = - l * (ball1.r/absl + 1/2)
+            l2_col = l * (ball2.r/absl + 1/2)
+
+            ball1.x = ball2.x + l1_col[0]
+            ball1.y = ball2.y + l1_col[1]
+            ball2.x = ball1.x + l2_col[0]
+            ball2.y = ball1.y + l2_col[1]
+
 
 
 pygame.init()
@@ -236,6 +246,6 @@ while not finished:
             target.live = 0
             target.hit()
             target.new_target()
-    gun.power_up()
+    #gun.power_up()
 
 pygame.quit()
