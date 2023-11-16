@@ -18,9 +18,9 @@ WHITE = 0xFFFFFF
 GREY = 0x7D7D7D
 GAME_COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
 
-g = 0  #Ускорение свободного падения
-G = 0  #Кэффициент, пропорциональный силе взаимодействия частиц
-k = 1  #Коэффицент потери скорости при ударе о стену
+g = 0  # Ускорение свободного падения
+G = 0  # Кэффициент, пропорциональный силе взаимодействия частиц
+k = 1  # Коэффицент потери скорости при ударе о стену
 
 WIDTH = 800
 HEIGHT = 600
@@ -43,6 +43,7 @@ class Ball:
         self.vy = 0
         self.ax = 0
         self.ay = 0
+        self.mass = 30
         self.color = choice(GAME_COLORS)
         self.live = 30
 
@@ -54,7 +55,6 @@ class Ball:
         и стен по краям окна (размер окна 800х600).
         """
         self.hitedges()
-
         self.movementevolution()
 
     def movementevolution(self):
@@ -70,7 +70,6 @@ class Ball:
 
         self.vy += self.ay
         self.vx += self.ax
-
 
     def hittest(self, obj):
         if (self.x - obj.x)**2 + (self.y - obj.y)**2 <= (self.r + obj.r)**2:
@@ -93,7 +92,6 @@ class Ball:
             self.y = self.r
             self.vy = -self.vy * k
 
-
     def draw(self):
         pygame.draw.circle(
             self.screen,
@@ -106,9 +104,11 @@ class Ball:
 class Gun:
     def __init__(self, screen):
         self.screen = screen
-        self.f2_power = 3
+        self.f2_power = 2
         self.f2_on = 0
         self.an = 1
+        self.bullet_radius = 15
+        self.bullet_mass = 30
         self.color = GREY
 
     def fire2_start(self, event):
@@ -123,6 +123,8 @@ class Gun:
         global balls, bullet, ballspairs
         bullet += 1
         new_ball = Ball(self.screen)
+        new_ball.r = self.bullet_radius
+        new_ball.mass = self.bullet_mass
         self.an = math.atan2((event.pos[1]-new_ball.y), (event.pos[0]-new_ball.x))
         new_ball.vx = self.f2_power * math.cos(self.an)
         new_ball.vy = self.f2_power * math.sin(self.an)
@@ -130,7 +132,7 @@ class Gun:
         for i in range(len(balls) - 1):
             ballspairs.append((balls[i], new_ball))
         self.f2_on = 0
-        self.f2_power = 3
+        self.f2_power = 2
 
     def targetting(self, event):
         """Прицеливание. Зависит от положения мыши."""
@@ -145,7 +147,7 @@ class Gun:
 
     def power_up(self):
         if self.f2_on:
-            if self.f2_power < 10:
+            if self.f2_power < 7:
                 self.f2_power += 1
             self.color = RED
         else:
@@ -180,6 +182,7 @@ class Target:
             self.r
         )
 
+
 def balls_interactions():
     for ballpair in ballspairs:
         ball1 = ballpair[0]
@@ -197,7 +200,6 @@ def balls_interactions():
         ball2.ay = a2[1]
 
 
-
 def balls_collision():
     for ballpair in ballspairs:
         ball1 = ballpair[0]
@@ -210,8 +212,9 @@ def balls_collision():
             l = np.array([ball2.x - ball1.x, ball2.y - ball1.y])
             absl = np.linalg.norm(l)
 
-            v2rel2_col = l * (np.dot(v1rel2, l))/(absl ** 2)
-            v1rel2_col = v1rel2 - v2rel2_col
+            v1rel2_l = l * (np.dot(v1rel2, l))/(absl ** 2)
+            v2rel2_col = v1rel2_l * (2 * ball1.mass / (ball1.mass + ball2.mass))
+            v1rel2_col = v1rel2 - v1rel2_l + v1rel2_l * ((ball1.mass - ball2.mass)/(ball1.mass + ball2.mass))
 
             v1_col = v1rel2_col + v2
             v2_col = v2rel2_col + v2
@@ -222,14 +225,13 @@ def balls_collision():
             ball2.vx = v2_col[0]
             ball2.vy = v2_col[1]
 
-            l1_col = - l * (ball1.r/absl + 1/2)
-            l2_col = l * (ball2.r/absl + 1/2)
+            l1_col = - l * (ball1.r/(2 * absl) + ball2.r/(2 * absl) + 1/2)
+            l2_col = l * (ball1.r/(2 * absl) + ball2.r/(2 * absl) + 1/2)
 
             ball1.x = ball2.x + l1_col[0]
             ball1.y = ball2.y + l1_col[1]
             ball2.x = ball1.x + l2_col[0]
             ball2.y = ball1.y + l2_col[1]
-
 
 
 pygame.init()
@@ -251,11 +253,17 @@ while not finished:
         b.draw()
 
     font1 = pygame.font.Font(None, 36)
+    font2 = pygame.font.Font(None, 28)
+
     bullets_count = font1.render('Bullets on screen: ' + str(bullet), True, BLACK, WHITE)
+    bullets_radius = font2.render('Bullet radius: ' + str(gun.bullet_radius), True, BLACK, WHITE)
+    bullets_mass = font2.render('Bullet mass: ' + str(gun.bullet_mass), True, BLACK, WHITE)
+
+    screen.blit(bullets_radius, (WIDTH - 180, 10))
+    screen.blit(bullets_mass, (WIDTH - 180, 30))
     screen.blit(bullets_count, (10, 10))
 
     pygame.display.update()
-
 
     clock.tick(FPS)
     for event in pygame.event.get():
@@ -267,6 +275,21 @@ while not finished:
             gun.fire2_end(event)
         elif event.type == pygame.MOUSEMOTION:
             gun.targetting(event)
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP:
+                if gun.bullet_radius < 59:
+                    gun.bullet_radius += 1
+            elif event.key == pygame.K_DOWN:
+                if gun.bullet_radius > 5:
+                    gun.bullet_radius -= 1
+            if event.key == pygame.K_RIGHT:
+                if gun.bullet_mass < 250:
+                    gun.bullet_mass += 5
+            elif event.key == pygame.K_LEFT:
+                if gun.bullet_mass > 10:
+                    gun.bullet_mass -= 5
+
+
 
     #balls_interactions()
 
