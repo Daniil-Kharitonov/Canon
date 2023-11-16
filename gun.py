@@ -1,5 +1,6 @@
 import math
 from random import choice, randint
+import numpy as np
 
 import pygame
 
@@ -48,6 +49,9 @@ class Ball:
         """
         self.hitedges()
 
+        self.movementevolution()
+
+    def movementevolution(self):
         if self.vx >= 0:
             self.x += min(self.vx, abs(self.x + self.r - WIDTH))
         elif self.vx < 0:
@@ -75,7 +79,7 @@ class Ball:
         Returns:
             Возвращает True в случае столкновения мяча и цели. В противном случае возвращает False.
         """
-        if (self.x - obj.x)**2 + (self.y - obj.y)**2 <= (self.r - obj.r)**2:
+        if (self.x - obj.x)**2 + (self.y - obj.y)**2 <= (self.r + obj.r)**2:
             return True
         else:
             return False
@@ -109,14 +113,16 @@ class Gun:
         Происходит при отпускании кнопки мыши.
         Начальные значения компонент скорости мяча vx и vy зависят от положения мыши.
         """
-        global balls, bullet
+        global balls, bullet, ballspairs
         bullet += 1
         new_ball = Ball(self.screen)
         new_ball.r += 5
         self.an = math.atan2((event.pos[1]-new_ball.y), (event.pos[0]-new_ball.x))
         new_ball.vx = self.f2_power * math.cos(self.an)
-        new_ball.vy = - self.f2_power * math.sin(self.an)
+        new_ball.vy = self.f2_power * math.sin(self.an)
         balls.append(new_ball)
+        for i in range(len(balls) - 1):
+            ballspairs.append((balls[i], new_ball))
         self.f2_on = 0
         self.f2_power = 10
 
@@ -168,10 +174,35 @@ class Target:
         )
 
 
+def balls_collision():
+    for ballpair in ballspairs:
+        ball1 = ballpair[0]
+        ball2 = ballpair[1]
+
+        if ball1.hittest(ball2):
+            v1 = np.array([ball1.vx, ball1.vy])
+            v2 = np.array([ball2.vx, ball2.vy])
+            v1rel2 = v1 - v2
+            l = np.array([ball2.x - ball1.x, ball2.y - ball1.y])
+
+            v2rel2_col = l * (np.dot(v1rel2, l))/(np.linalg.norm(l) ** 2)
+            v1rel2_col = v1rel2 - v2rel2_col
+
+            v1_col = v1rel2_col + v2
+            v2_col = v2rel2_col + v2
+
+            ball1.vx = v1_col[0]
+            ball1.vy = v1_col[1]
+
+            ball2.vx = v2_col[0]
+            ball2.vy = v2_col[1]
+
+
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 bullet = 0
 balls = []
+ballspairs = []
 
 clock = pygame.time.Clock()
 gun = Gun(screen)
@@ -196,6 +227,8 @@ while not finished:
             gun.fire2_end(event)
         elif event.type == pygame.MOUSEMOTION:
             gun.targetting(event)
+
+    balls_collision()
 
     for b in balls:
         b.move()
