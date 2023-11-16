@@ -46,9 +46,18 @@ class Ball:
         self.x и self.y с учетом скоростей self.vx и self.vy, силы гравитации, действующей на мяч,
         и стен по краям окна (размер окна 800х600).
         """
-        # FIXME
-        self.x += self.vx
-        self.y -= self.vy
+        self.hitedges()
+
+        if self.vx >= 0:
+            self.x += min(self.vx, abs(self.x + self.r - WIDTH))
+        elif self.vx < 0:
+            self.x += max(self.vx, -abs(self.x - self.r))
+
+        if self.vy >= 0:
+            self.y += min(self.vy, abs(self.y + self.r - HEIGHT))
+        elif self.vy < 0:
+            self.y += max(self.vy, -abs(self.y - self.r))
+
 
     def draw(self):
         pygame.draw.circle(
@@ -70,6 +79,17 @@ class Ball:
             return True
         else:
             return False
+
+    def hitedges(self):
+        if (self.x + self.r >= WIDTH) and (self.vx >= 0):
+            self.vx = - self.vx * 1
+        if (self.x <= self.r) and (self.vx < 0):
+            self.vx = -self.vx * 1
+
+        if (self.y + self.r >= HEIGHT) and (self.vy >= 0):
+            self.vy = - self.vy * 1
+        if (self.y <= self.r) and (self.vy < 0):
+            self.vy = -self.vy * 1
 
 
 class Gun:
