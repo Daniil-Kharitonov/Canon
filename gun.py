@@ -1,5 +1,5 @@
 import math
-from random import choice
+from random import choice, randint
 
 import pygame
 
@@ -22,12 +22,13 @@ HEIGHT = 600
 
 
 class Ball:
-    def __init__(self, screen: pygame.Surface, x=40, y=450):
+    def __init__(self, screen, x=40, y=450):
         """ Конструктор класса ball
 
         Args:
         x - начальное положение мяча по горизонтали
         y - начальное положение мяча по вертикали
+        r - радиус шара
         """
         self.screen = screen
         self.x = x
@@ -65,7 +66,9 @@ class Ball:
         Returns:
             Возвращает True в случае столкновения мяча и цели. В противном случае возвращает False.
         """
-        # FIXME
+        if (self.x - obj.x)**2 + (self.y - obj.y)**2 <= (self.r - obj.r)**2:
+            return True
+        else:
             return False
 
 
@@ -107,7 +110,7 @@ class Gun:
             self.color = GREY
 
     def draw(self):
-        # FIXIT don't know how to do it
+        pygame.draw.rect(self.screen, self.color, pygame.Rect(15, 435, 30, 30))
 
     def power_up(self):
         if self.f2_on:
@@ -119,16 +122,17 @@ class Gun:
 
 
 class Target:
-    # self.points = 0
-    # self.live = 1
-    # FIXME: don't work!!! How to call this functions when object is created?
-    # self.new_target()
+    def __init__(self, screen):
+        self.screen = screen
+        self.points = 0
+        self.live = 1
+        self.new_target()
 
     def new_target(self):
         """ Инициализация новой цели. """
-        x = self.x = rnd(600, 780)
-        y = self.y = rnd(300, 550)
-        r = self.r = rnd(2, 50)
+        x = self.x = randint(600, 780)
+        y = self.y = randint(300, 550)
+        r = self.r = randint(2, 50)
         color = self.color = RED
 
     def hit(self, points=1):
@@ -136,7 +140,12 @@ class Target:
         self.points += points
 
     def draw(self):
-        ...
+        pygame.draw.circle(
+            self.screen,
+            self.color,
+            (self.x, self.y),
+            self.r
+        )
 
 
 pygame.init()
@@ -146,7 +155,7 @@ balls = []
 
 clock = pygame.time.Clock()
 gun = Gun(screen)
-target = Target()
+target = Target(screen)
 finished = False
 
 while not finished:
