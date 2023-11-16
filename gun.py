@@ -5,7 +5,7 @@ import numpy as np
 import pygame
 
 
-FPS = 30
+FPS = 60
 
 RED = 0xFF0000
 BLUE = 0x0000FF
@@ -17,6 +17,10 @@ BLACK = (0, 0, 0)
 WHITE = 0xFFFFFF
 GREY = 0x7D7D7D
 GAME_COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
+
+g = 0  #Ускорение свободного падения
+G = 0  #Кэффициент, пропорциональный силе взаимодействия частиц
+k = 1  #Коэффицент потери скорости при ударе о стену
 
 WIDTH = 800
 HEIGHT = 600
@@ -34,9 +38,11 @@ class Ball:
         self.screen = screen
         self.x = x
         self.y = y
-        self.r = 10
+        self.r = 15
         self.vx = 0
         self.vy = 0
+        self.ax = 0
+        self.ay = 0
         self.color = choice(GAME_COLORS)
         self.live = 30
 
@@ -62,6 +68,31 @@ class Ball:
         elif self.vy < 0:
             self.y += max(self.vy, -abs(self.y - self.r))
 
+        self.vy += self.ay
+        self.vx += self.ax
+
+
+    def hittest(self, obj):
+        if (self.x - obj.x)**2 + (self.y - obj.y)**2 <= (self.r + obj.r)**2:
+            return True
+        else:
+            return False
+
+    def hitedges(self):
+        if (self.x + self.r >= WIDTH) and (self.vx >= 0):
+            self.x = WIDTH - self.r
+            self.vx = - self.vx * k
+        if (self.x <= self.r) and (self.vx < 0):
+            self.x = self.r
+            self.vx = -self.vx * k
+
+        if (self.y + self.r >= HEIGHT) and (self.vy >= 0):
+            self.y = HEIGHT - self.r
+            self.vy = - self.vy * k
+        if (self.y <= self.r) and (self.vy < 0):
+            self.y = self.r
+            self.vy = -self.vy * k
+
 
     def draw(self):
         pygame.draw.circle(
@@ -71,34 +102,11 @@ class Ball:
             self.r
         )
 
-    def hittest(self, obj):
-        #l = np.array([self.x - obj.x, self.y - obj.y])
-        #v1 = np.array([self.vx, self.vy])
-        #v2 = np.array([obj.vx, obj.vy])
-
-        #vapproach = (l * (np.dot(v1, l)) / (np.linalg.norm(l) ** 2)) + (l * (np.dot(v2, l)) / (np.linalg.norm(l) ** 2))
-
-        if (self.x - obj.x)**2 + (self.y - obj.y)**2 <= (self.r + obj.r)**2:
-            return True
-        else:
-            return False
-
-    def hitedges(self):
-        if (self.x + self.r >= WIDTH) and (self.vx >= 0):
-            self.vx = - self.vx * 1
-        if (self.x <= self.r) and (self.vx < 0):
-            self.vx = -self.vx * 1
-
-        if (self.y + self.r >= HEIGHT) and (self.vy >= 0):
-            self.vy = - self.vy * 1
-        if (self.y <= self.r) and (self.vy < 0):
-            self.vy = -self.vy * 1
-
 
 class Gun:
     def __init__(self, screen):
         self.screen = screen
-        self.f2_power = 5
+        self.f2_power = 3
         self.f2_on = 0
         self.an = 1
         self.color = GREY
@@ -115,7 +123,6 @@ class Gun:
         global balls, bullet, ballspairs
         bullet += 1
         new_ball = Ball(self.screen)
-        new_ball.r += 5
         self.an = math.atan2((event.pos[1]-new_ball.y), (event.pos[0]-new_ball.x))
         new_ball.vx = self.f2_power * math.cos(self.an)
         new_ball.vy = self.f2_power * math.sin(self.an)
@@ -123,12 +130,12 @@ class Gun:
         for i in range(len(balls) - 1):
             ballspairs.append((balls[i], new_ball))
         self.f2_on = 0
-        self.f2_power = 10
+        self.f2_power = 3
 
     def targetting(self, event):
         """Прицеливание. Зависит от положения мыши."""
         if event:
-            self.an = math.atan((event.pos[1]-450) / (event.pos[0]-20)) # FIXME sometimes create division by zero error
+            self.an = math.atan((event.pos[1]-450) / (event.pos[0]-20))
             self.color = RED
         else:
             self.color = GREY
@@ -138,7 +145,7 @@ class Gun:
 
     def power_up(self):
         if self.f2_on:
-            if self.f2_power < 100:
+            if self.f2_power < 10:
                 self.f2_power += 1
             self.color = RED
         else:
@@ -172,6 +179,23 @@ class Target:
             (self.x, self.y),
             self.r
         )
+
+def balls_interactions():
+    for ballpair in ballspairs:
+        ball1 = ballpair[0]
+        ball2 = ballpair[1]
+
+        l = np.array([ball2.x - ball1.x, ball2.y - ball1.y])
+        absl = np.linalg.norm(l)
+
+        a2 = - (G/absl**3) * l
+        a1 = -a2
+
+        ball1.ax = a1[0]
+        ball1.ay = a1[1]
+        ball2.ax = a2[0]
+        ball2.ay = a2[1]
+
 
 
 def balls_collision():
@@ -216,16 +240,22 @@ ballspairs = []
 
 clock = pygame.time.Clock()
 gun = Gun(screen)
-target = Target(screen)
+#target = Target(screen)
 finished = False
 
 while not finished:
     screen.fill(WHITE)
     gun.draw()
-    target.draw()
+    #target.draw()
     for b in balls:
         b.draw()
+
+    font1 = pygame.font.Font(None, 36)
+    bullets_count = font1.render('Bullets on screen: ' + str(bullet), True, BLACK, WHITE)
+    screen.blit(bullets_count, (10, 10))
+
     pygame.display.update()
+
 
     clock.tick(FPS)
     for event in pygame.event.get():
@@ -238,14 +268,17 @@ while not finished:
         elif event.type == pygame.MOUSEMOTION:
             gun.targetting(event)
 
+    #balls_interactions()
+
     balls_collision()
 
+    #print(sum([ball.vx**2 + ball.vy**2 for ball in balls]))
     for b in balls:
         b.move()
-        if b.hittest(target) and target.live:
-            target.live = 0
-            target.hit()
-            target.new_target()
-    #gun.power_up()
+        #if b.hittest(target) and target.live:
+            #target.live = 0
+            #target.hit()
+            #target.new_target()
+    gun.power_up()
 
 pygame.quit()
