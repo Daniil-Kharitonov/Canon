@@ -446,7 +446,6 @@ while not finished:
     check_for_collision_in_frame = False
     counter += 1
 
-    print(sum([ball.mass * (ball.vx**2 + ball.vy**2) for ball in balls]))
     for b in balls:
         b.move()
         #if b.hittest(target) and target.live:
